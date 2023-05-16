@@ -3,6 +3,8 @@ from flask_cors import CORS
 from PIL import Image, ImageOps
 import piexif
 import os
+import base64
+import io
 
 app = Flask(__name__)
 
@@ -16,6 +18,12 @@ if not os.path.exists(input_dir):
 
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
+
+def image_to_base64(image):
+    buffered = io.BytesIO()
+    image.save(buffered, format="JPEG")
+    img_str = base64.b64encode(buffered.getvalue()).decode('ascii')
+    return f"data:image/jpeg;base64,{img_str}"
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -79,6 +87,8 @@ def upload():
                 "new_height": new_height,
                 "optimized_image_url": optimized_image_url,
                 "optimized_size_bytes": optimized_size,
+                "original_image_data": image_to_base64(img),
+                "resized_image_data": image_to_base64(img_resized) if not optimize else "",
             })
         else:
             return "Invalid file format", 400

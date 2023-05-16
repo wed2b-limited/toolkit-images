@@ -116,14 +116,24 @@ function Form() {
         img.onload = () => resolve(img);
     });
 
-    const resizeImage = (img, width, height) => {
+    const resizeImage = (img, width, height, quality) => {
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
-        return canvas;
+        return new Promise((resolve) => {
+            canvas.toBlob(
+                (blob) => {
+                    const data = URL.createObjectURL(blob);
+                    resolve({ canvas, data });
+                },
+                'image/jpeg',
+                quality / 100
+            );
+        });
     };
+
 
     const optimizeImage = async (img, quality) => {
         const canvas = document.createElement("canvas");
@@ -150,17 +160,14 @@ function Form() {
         const formWidth = data.width;
         const formHeight = data.height;
 
-        if (!formWidth && !formHeight && !aspectRatio) {
-            console.error('Width, height, and aspect ratio are undefined. Please provide valid values.');
-            return;
-        }
-
         setProcessing(true);
 
         const processImages = async (width, height) => {
             const formData = new FormData();
-            formData.append("width", width);
-            formData.append("height", height);
+            if (width && height) {
+                formData.append("width", width);
+                formData.append("height", height);
+            }
             formData.append("optimize", optimize);
             if (optimize) {
                 formData.append('quality', quality);
@@ -189,6 +196,7 @@ function Form() {
                         newImageHeight: responseData.new_height,
                         operation: optimize ? "Optimized" : "Resized",
                         quality: quality,
+                        resizedImage: responseData.resized_image_data
                     };
 
                     setImages((prevImages) => [...prevImages, optimizedImage]);
@@ -198,39 +206,11 @@ function Form() {
                 console.error("Error uploading the image:", error);
             }
         };
-        if (files.length > 1 && aspectRatio) {
-            for (const file of files) {
-                const img = await createImage(file);
-                const originalWidth = img.width;
-                const originalHeight = img.height;
-                const [aspectWidth, aspectHeight] = aspectRatio.split(':').map(Number);
-                const originalAspectRatio = originalWidth / originalHeight;
 
-                let newWidth, newHeight;
-                if (originalAspectRatio > aspectWidth / aspectHeight) {
-                    newWidth = originalWidth;
-                    newHeight = Math.round((originalWidth * aspectHeight) / aspectWidth);
-                } else {
-                    newWidth = Math.round((originalHeight * aspectWidth) / aspectHeight);
-                    newHeight = originalHeight;
-                }
-
-                if (newWidth > originalWidth) {
-                    const ratio = originalWidth / newWidth;
-                    newWidth = originalWidth;
-                    newHeight = Math.round(newHeight * ratio);
-                }
-
-                if (newHeight > originalHeight) {
-                    const ratio = originalHeight / newHeight;
-                    newHeight = originalHeight;
-                    newWidth = Math.round(newWidth * ratio);
-                }
-
-                await processImages(newWidth, newHeight);
-            }
-        } else {
+        if (formWidth && formHeight) {
             await processImages(formWidth, formHeight);
+        } else {
+            await processImages(null, null);
         }
 
         setProcessing(false);
@@ -239,23 +219,25 @@ function Form() {
     };
 
 
+
     const clearAll = () => {
             setImages([]);
         };
 
-        const downloadAll = async () => {
-            const zip = new JSZip();
-            const promises = images.map(async (image, index) => {
-                const response = await fetch(image.optimizedImage);
-                const blob = await response.blob();
-                const fileName = image.operation === 'Optimized' ? `optimized_image_${index}.jpg` : `resized_image_${index}.jpg`;
-                zip.file(fileName, blob);
-            });
+    const downloadAll = async () => {
+        const zip = new JSZip();
+        const promises = images.map(async (image, index) => {
+            const response = await fetch(image.optimizedImage);
+            const blob = await response.blob();
+            const fileName = image.operation === 'Optimized' ? `optimized_image_${index}.jpg` : `resized_image_${index}.jpg`;
+            zip.file(fileName, blob, { binary: true });
+        });
 
-            await Promise.all(promises);
-            const content = await zip.generateAsync({type: 'blob'});
-            saveAs(content, 'images.zip');
-        };
+        await Promise.all(promises);
+        const content = await zip.generateAsync({ type: 'blob' });
+        saveAs(content, 'images.zip');
+    };
+
 
         const width = watch("width");
         const height = watch("height");

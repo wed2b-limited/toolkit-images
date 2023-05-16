@@ -12,7 +12,8 @@ const ImageItem = ({image, setImages}) => {
     }, [debouncedQuality]);
 
     const downloadImage = () => {
-        fetch(image.optimizedImage)
+        const imageData = isOptimized ? image.optimizedImage : image.resizedImage;
+        fetch(imageData)
             .then((response) => response.blob())
             .then((blob) => {
                 const link = document.createElement('a');
@@ -24,6 +25,17 @@ const ImageItem = ({image, setImages}) => {
                 document.body.removeChild(link);
             });
     };
+
+    const openImage = () => {
+        const imageData = isOptimized ? image.optimizedImage : image.resizedImage;
+        fetch(imageData)
+            .then((response) => response.blob())
+            .then((blob) => {
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
+            });
+    };
+
 
     const dataUrlToImage = (dataUrl) => {
         return new Promise((resolve) => {
@@ -77,19 +89,22 @@ const ImageItem = ({image, setImages}) => {
                     {isOptimized ? 'Optimized Image' : 'Resized Image'}
                 </Typography>
                 <Box sx={{display: 'flex', justifyContent: 'space-between', mt: 2}}>
-                    <CardMedia
-                        component="img"
-                        alt="Original Image"
-                        image={image.originalImage}
-                        title="Original Image"
-                        sx={{maxWidth: '200px', ml: -2, mr: 2}}
-                    />
+                    {isOptimized && (
+                        <CardMedia
+                            component="img"
+                            alt="Original Image"
+                            image={isOptimized ? image.originalImage : image.resizedImage}
+                            title="Original Image"
+                            sx={{maxWidth: '200px', ml: -2, mr: 2}}
+                        />
+                    )}
                     <CardMedia
                         component="img"
                         alt={isOptimized ? "Optimized Image" : "Resized Image"}
-                        image={image.optimizedImage}
+                        image={isOptimized ? image.optimizedImage : image.resizedImage}
                         title={isOptimized ? "Optimized Image" : "Resized Image"}
                         sx={{maxWidth: '200px'}}
+                        align='center'
                     />
                 </Box>
                 <Box sx={{display: 'flex', flexDirection: 'column'}}>
@@ -139,7 +154,7 @@ const ImageItem = ({image, setImages}) => {
                     <Button
                         variant="contained"
                         color="primary"
-                        onClick={() => window.open(image.optimizedImage, '_blank')}
+                        onClick={openImage}
                     >
                         Open
                     </Button>
