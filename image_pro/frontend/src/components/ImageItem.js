@@ -1,11 +1,33 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, Typography, Box, CardMedia, Button, Slider } from '@mui/material';
+import { Card, CardContent, Typography, Box, CardMedia, Button, Slider, TextField, FormControlLabel, Checkbox  } from '@mui/material';
 import useDebounce from '../hooks/useDebounce';
 
 const ImageItem = ({image, setImages}) => {
     const [inputQuality, setInputQuality] = useState(image.quality);
+    const [newImageWidth, setNewImageWidth] = useState(image.newImageWidth);
+    const [newImageHeight, setNewImageHeight] = useState(image.newImageHeight);
+    const [preserveAspectRatio, setPreserveAspectRatio] = useState(true);
     const debouncedQuality = useDebounce(inputQuality, 300);
     const isOptimized = image.operation === "Optimized";
+    const [lastUpdatedField, setLastUpdatedField] = useState(null);
+
+
+    const aspectRatio = image.originalImageWidth / image.originalImageHeight;
+
+    useEffect(() => {
+        if (preserveAspectRatio) {
+            const currentAspectRatio = newImageWidth / newImageHeight;
+            if (currentAspectRatio !== aspectRatio) {
+                if (lastUpdatedField === 'width') {
+                    setNewImageHeight(Math.round(newImageWidth / aspectRatio));
+                } else if (lastUpdatedField === 'height') {
+                    setNewImageWidth(Math.round(newImageHeight * aspectRatio));
+                }
+            }
+        }
+    }, [preserveAspectRatio, newImageWidth, newImageHeight, aspectRatio, lastUpdatedField]);
+
+
 
     const updateQuality = useCallback(async (newQuality) => {
         const img = await dataUrlToImage(image.originalImage);
@@ -25,11 +47,70 @@ const ImageItem = ({image, setImages}) => {
     }, [image, setImages]);
 
     useEffect(() => {
-        updateQuality(debouncedQuality);
-    }, [debouncedQuality, updateQuality]);
+        if(isOptimized) updateQuality(debouncedQuality);
+    }, [debouncedQuality, updateQuality, isOptimized]);
+
+    const updateImageSize = useCallback(async (newWidth, newHeight) => {
+        const img = await dataUrlToImage(image.originalImage);
+        const { canvas, data } = await resizeImage(img, newWidth, newHeight); // <-- use newWidth and newHeight
+        const response = await fetch(data);
+        const blob = await response.blob();
+        const updatedResizedSize = blob.size;
+        const updatedImage = {
+            ...image,
+            resizedImage: data,
+            resizedSizeMB: (updatedResizedSize / (1024 * 1024)).toFixed(2),
+            newImageWidth: newWidth, // <-- use newWidth
+            newImageHeight: newHeight, // <-- use newHeight
+        };
+        setImages((prevImages) =>
+            prevImages.map((prevImage) => (prevImage === image ? updatedImage : prevImage))
+        );
+    }, [image, setImages]);
 
 
-    const downloadImage = () => {
+    useEffect(() => {
+        updateImageSize(newImageWidth, newImageHeight);
+    }, [newImageWidth, newImageHeight, updateImageSize]);
+
+    const handleWidthChange = (event) => {
+        const value = parseInt(event.target.value, 10);
+        setNewImageWidth(value);
+        setLastUpdatedField('width');
+        if (preserveAspectRatio) {
+            setNewImageHeight(Math.round(value / aspectRatio));
+        }
+    };
+
+    const handleHeightChange = (event) => {
+        const value = parseInt(event.target.value, 10);
+        setNewImageHeight(value);
+        setLastUpdatedField('height');
+        if (preserveAspectRatio) {
+            setNewImageWidth(Math.round(value * aspectRatio));
+        }
+    };
+
+
+    const resizeImage = async (img, width, height) => {
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        return await new Promise((resolve) => {
+            canvas.toBlob(
+                (blob) => {
+                    const data = URL.createObjectURL(blob);
+                    resolve({ canvas, data });
+                },
+                "image/jpeg"
+            );
+        });
+    };
+
+
+            const downloadImage = () => {
         const imageData = isOptimized ? image.optimizedImage : image.resizedImage;
         fetch(imageData)
             .then((response) => response.blob())
@@ -81,11 +162,6 @@ const ImageItem = ({image, setImages}) => {
         });
     };
 
-
-
-
-
-
     return (
         <Card>
             <CardContent>
@@ -107,7 +183,7 @@ const ImageItem = ({image, setImages}) => {
                         alt={isOptimized ? "Optimized Image" : "Resized Image"}
                         image={isOptimized ? image.optimizedImage : image.resizedImage}
                         title={isOptimized ? "Optimized Image" : "Resized Image"}
-                        sx={{ maxWidth: isOptimized ? '200px' : '200px', display: 'block', margin: isOptimized ? undefined : 'auto' }}
+                        sx={{ width: '200px', height: '200px', objectFit: 'scale-down', display: 'block', margin: isOptimized ? undefined : 'auto' }}
                     />
                 </Box>
                 <Box sx={{display: 'flex', flexDirection: 'column'}}>
@@ -138,9 +214,29 @@ const ImageItem = ({image, setImages}) => {
                             <Typography variant="body2" color="text.secondary" align="center">
                                 Original dimensions: {image.originalImageWidth}x{image.originalImageHeight}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary" align="center">
-                                Resized dimensions: {image.newImageWidth}x{image.newImageHeight}
-                            </Typography>
+
+                            <Box sx={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', mt: 2 }}>
+                                <TextField
+                                    label="Width"
+                                    type="number"
+                                    InputLabelProps={{ shrink: true }}
+                                    value={newImageWidth}
+                                    onChange={handleWidthChange}
+                                    sx={{ width: 80 }}
+                                />
+                                <TextField
+                                    label="Height"
+                                    type="number"
+                                    InputLabelProps={{ shrink: true }}
+                                    value={newImageHeight}
+                                    onChange={handleHeightChange}
+                                    sx={{ width: 80 }}
+                                />
+                                <FormControlLabel
+                                    control={<Checkbox checked={preserveAspectRatio} onChange={(event) => setPreserveAspectRatio(event.target.checked)} />}
+                                    label="Preserve aspect ratio"
+                                />
+                            </Box>
                         </>
                     )}
                 </Box>
