@@ -1,6 +1,6 @@
 import React, {useRef, useState} from 'react';
 import {useForm} from 'react-hook-form';
-import {Box, TextField, Button, Grid, Snackbar, Alert, Slider, Typography, FormControl, InputLabel, MenuItem, Select } from '@mui/material';
+import {Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Box, TextField, Button, Grid, Snackbar, Alert, Slider, Typography, FormControl, InputLabel, MenuItem, Select } from '@mui/material';
 import ImageItem from './ImageItem';
 import axios from 'axios';
 import JSZip from 'jszip';
@@ -14,7 +14,15 @@ function Form() {
     const [processing, setProcessing] = useState(false);
     const [aspectRatio, setAspectRatio] = useState(null);
     const [fileList, setFileList] = useState([]);
+    const [clearDialogOpen, setClearDialogOpen] = useState(false);
 
+    const handleClearDialogOpen = () => {
+        setClearDialogOpen(true);
+    };
+
+    const handleClearDialogClose = () => {
+        setClearDialogOpen(false);
+    };
 
     const handleFileChange = (e) => {
         const files = e.target.files;
@@ -207,11 +215,7 @@ function Form() {
             }
         };
 
-        if (formWidth && formHeight) {
-            await processImages(formWidth, formHeight);
-        } else {
-            await processImages(null, null);
-        }
+        await processImages(formWidth, formHeight);
 
         setProcessing(false);
         setValue("width", "");
@@ -220,8 +224,10 @@ function Form() {
 
 
 
+
     const clearAll = () => {
-            setImages([]);
+        setImages([]);
+        setClearDialogOpen(false);
         };
 
     const downloadAll = async () => {
@@ -312,14 +318,17 @@ function Form() {
                         <Button
                             variant="contained"
                             color="primary"
-                            disabled={(fileList.length <= 1 && (!width || !height)) || (fileList.length > 1 && !aspectRatio)}
+                            disabled={(!fileList.length) || (fileList.length >= 1 && (!width || !height) && !aspectRatio)}
                             onClick={handleSubmit((data) => onSubmit(data, false))}
                         >
                             Resize
                         </Button>
+
+
                         <Button
                             variant="contained"
                             color="primary"
+                            disabled={(!fileList.length)}
                             onClick={handleSubmit((data) => onSubmit(data, true))}
                         >
                             Optimize
@@ -328,9 +337,28 @@ function Form() {
                 </Box>
                 {images.length > 0 && (
                     <Box mt={2} mb={4} align="center">
-                        <Button variant="contained" color="error" onClick={clearAll}>
+                        <Button variant="contained" color="error" onClick={handleClearDialogOpen}>
                             Clear All
                         </Button>
+                        <Dialog
+                            open={clearDialogOpen}
+                            onClose={handleClearDialogClose}
+                        >
+                            <DialogTitle>{"Confirm Clear All"}</DialogTitle>
+                            <DialogContent>
+                                <DialogContentText>
+                                    Are you sure you want to clear all images?
+                                </DialogContentText>
+                            </DialogContent>
+                            <DialogActions>
+                                <Button onClick={handleClearDialogClose} color="primary">
+                                    Cancel
+                                </Button>
+                                <Button onClick={clearAll} color="primary" autoFocus>
+                                    Yes
+                                </Button>
+                            </DialogActions>
+                        </Dialog>
                         {images.length > 1 && (
                             <Button variant="contained" color="info" onClick={downloadAll} style={{marginLeft: 8}}>
                                 Download All

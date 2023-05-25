@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, Typography, Box, CardMedia, Button, Slider } from '@mui/material';
 import useDebounce from '../hooks/useDebounce';
 
@@ -7,9 +7,27 @@ const ImageItem = ({image, setImages}) => {
     const debouncedQuality = useDebounce(inputQuality, 300);
     const isOptimized = image.operation === "Optimized";
 
+    const updateQuality = useCallback(async (newQuality) => {
+        const img = await dataUrlToImage(image.originalImage);
+        const { canvas, data } = await optimizeImage(img, newQuality);
+        const response = await fetch(data);
+        const blob = await response.blob();
+        const updatedOptimizedSize = blob.size;
+        const updatedImage = {
+            ...image,
+            optimizedImage: data,
+            optimizedSizeMB: (updatedOptimizedSize / (1024 * 1024)).toFixed(2),
+            quality: newQuality,
+        };
+        setImages((prevImages) =>
+            prevImages.map((prevImage) => (prevImage === image ? updatedImage : prevImage))
+        );
+    }, [image, setImages]);
+
     useEffect(() => {
         updateQuality(debouncedQuality);
-    }, [debouncedQuality]);
+    }, [debouncedQuality, updateQuality]);
+
 
     const downloadImage = () => {
         const imageData = isOptimized ? image.optimizedImage : image.resizedImage;
@@ -63,22 +81,8 @@ const ImageItem = ({image, setImages}) => {
         });
     };
 
-    const updateQuality = async (newQuality) => {
-        const img = await dataUrlToImage(image.originalImage);
-        const { canvas, data } = await optimizeImage(img, newQuality);
-        const response = await fetch(data);
-        const blob = await response.blob();
-        const updatedOptimizedSize = blob.size;
-        const updatedImage = {
-            ...image,
-            optimizedImage: data,
-            optimizedSizeMB: (updatedOptimizedSize / (1024 * 1024)).toFixed(2),
-            quality: newQuality,
-        };
-        setImages((prevImages) =>
-            prevImages.map((prevImage) => (prevImage === image ? updatedImage : prevImage))
-        );
-    };
+
+
 
 
 
@@ -103,8 +107,7 @@ const ImageItem = ({image, setImages}) => {
                         alt={isOptimized ? "Optimized Image" : "Resized Image"}
                         image={isOptimized ? image.optimizedImage : image.resizedImage}
                         title={isOptimized ? "Optimized Image" : "Resized Image"}
-                        sx={{maxWidth: '200px'}}
-                        align='center'
+                        sx={{ maxWidth: isOptimized ? '200px' : '200px', display: 'block', margin: isOptimized ? undefined : 'auto' }}
                     />
                 </Box>
                 <Box sx={{display: 'flex', flexDirection: 'column'}}>
