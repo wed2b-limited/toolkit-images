@@ -6,7 +6,7 @@ function App() {
   return (
       <Container maxWidth="md">
         <Box mt={4}>
-          <Typography variant="h4" align="center">Image Resizer</Typography>
+          <Typography variant="h4" align="center">ImagePro</Typography>
         </Box>
          <Form />
       </Container>

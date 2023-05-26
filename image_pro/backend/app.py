@@ -45,6 +45,7 @@ def upload():
                 uploaded_file.save(input_path)
 
                 img = Image.open(input_path)
+                original_width, original_height = img.size
 
                 original_size = os.path.getsize(input_path)
 
@@ -52,7 +53,7 @@ def upload():
                     # Remove EXIF data
                     try:
                         exif_dict = piexif.load(img.info["exif"])
-                        exif_bytes = piexif.dump(exif_dict)
+                        exif_bytes = piexif.dump(exif_dict) if exif_dict else b''
                     except (AttributeError, KeyError):
                         exif_bytes = b''
 
@@ -78,7 +79,6 @@ def upload():
                     else:
                         img_resized = img
 
-
                     # Convert image to RGB mode if it has an alpha channel (transparency)
                     if img_resized.mode == 'RGBA':
                         img_resized = img_resized.convert('RGB')
@@ -88,7 +88,6 @@ def upload():
 
                 optimized_size = os.path.getsize(output_path)
                 optimized_image_url = url_for('get_image', filename=filename, _external=True)
-                original_width, original_height = img.size
                 new_width, new_height = img_resized.size
                 print("Optimized image URL:", optimized_image_url)
 

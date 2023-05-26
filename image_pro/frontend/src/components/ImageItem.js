@@ -1,16 +1,38 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, Typography, Box, CardMedia, Button, Slider, TextField, FormControlLabel, Checkbox  } from '@mui/material';
+import {
+    Card,
+    CardContent,
+    Typography,
+    Box,
+    CardMedia,
+    Button,
+    Slider,
+    TextField,
+    FormControlLabel,
+    Checkbox,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogContentText,
+    DialogActions,
+} from '@mui/material';
 import useDebounce from '../hooks/useDebounce';
 
-const ImageItem = ({image, setImages}) => {
+const MAX_WIDTH = 2000; // Example maximum width limit
+const MAX_HEIGHT = 2000; // Example maximum height limit
+const MAX_TOTAL_FILE_SIZE_MB = 10; // Example maximum total file size limit in MB
+
+const ImageItem = ({ image, setImages }) => {
     const [inputQuality, setInputQuality] = useState(image.quality);
     const [newImageWidth, setNewImageWidth] = useState(image.newImageWidth);
     const [newImageHeight, setNewImageHeight] = useState(image.newImageHeight);
-    const [preserveAspectRatio, setPreserveAspectRatio] = useState(true);
-    const debouncedQuality = useDebounce(inputQuality, 300);
-    const isOptimized = image.operation === "Optimized";
+    const [preserveAspectRatio, setPreserveAspectRatio] = useState(false);
     const [lastUpdatedField, setLastUpdatedField] = useState(null);
+    const [fileSizeError, setFileSizeError] = useState(false);
+    const [dimensionError, setDimensionError] = useState(false);
 
+    const debouncedQuality = useDebounce(inputQuality, 350);
+    const isOptimized = image.operation === 'Optimized';
 
     const aspectRatio = image.originalImageWidth / image.originalImageHeight;
 
@@ -27,54 +49,65 @@ const ImageItem = ({image, setImages}) => {
         }
     }, [preserveAspectRatio, newImageWidth, newImageHeight, aspectRatio, lastUpdatedField]);
 
-
-
-    const updateQuality = useCallback(async (newQuality) => {
-        const img = await dataUrlToImage(image.originalImage);
-        const { canvas, data } = await optimizeImage(img, newQuality);
-        const response = await fetch(data);
-        const blob = await response.blob();
-        const updatedOptimizedSize = blob.size;
-        const updatedImage = {
-            ...image,
-            optimizedImage: data,
-            optimizedSizeMB: (updatedOptimizedSize / (1024 * 1024)).toFixed(2),
-            quality: newQuality,
-        };
-        setImages((prevImages) =>
-            prevImages.map((prevImage) => (prevImage === image ? updatedImage : prevImage))
-        );
-    }, [image, setImages]);
+    const updateQuality = useCallback(
+        async (newQuality) => {
+            const img = await dataUrlToImage(image.originalImage);
+            const { canvas, data } = await optimizeImage(img, newQuality);
+            const response = await fetch(data);
+            const blob = await response.blob();
+            const updatedOptimizedSize = blob.size;
+            const updatedImage = {
+                ...image,
+                optimizedImage: data,
+                optimizedSizeMB: (updatedOptimizedSize / (1024 * 1024)).toFixed(2),
+                quality: newQuality,
+            };
+            setImages((prevImages) =>
+                prevImages.map((prevImage) => (prevImage === image ? updatedImage : prevImage))
+            );
+        },
+        [image, setImages]
+    );
 
     useEffect(() => {
-        if(isOptimized) updateQuality(debouncedQuality);
+        if (isOptimized) updateQuality(debouncedQuality);
     }, [debouncedQuality, updateQuality, isOptimized]);
 
-    const updateImageSize = useCallback(async (newWidth, newHeight) => {
-        const img = await dataUrlToImage(image.originalImage);
-        const { canvas, data } = await resizeImage(img, newWidth, newHeight); // <-- use newWidth and newHeight
-        const response = await fetch(data);
-        const blob = await response.blob();
-        const updatedResizedSize = blob.size;
-        const updatedImage = {
-            ...image,
-            resizedImage: data,
-            resizedSizeMB: (updatedResizedSize / (1024 * 1024)).toFixed(2),
-            newImageWidth: newWidth, // <-- use newWidth
-            newImageHeight: newHeight, // <-- use newHeight
-        };
-        setImages((prevImages) =>
-            prevImages.map((prevImage) => (prevImage === image ? updatedImage : prevImage))
-        );
-    }, [image, setImages]);
-
+    const updateImageSize = useCallback(
+        async (newWidth, newHeight) => {
+            const img = await dataUrlToImage(image.originalImage);
+            const { canvas, data } = await resizeImage(img, newWidth, newHeight); // <-- use newWidth and newHeight
+            const response = await fetch(data);
+            const blob = await response.blob();
+            const updatedResizedSize = blob.size;
+            const updatedImage = {
+                ...image,
+                resizedImage: data,
+                resizedSizeMB: (updatedResizedSize / (1024 * 1024)).toFixed(2),
+                newImageWidth: newWidth, // <-- use newWidth
+                newImageHeight: newHeight, // <-- use newHeight
+            };
+            setImages((prevImages) =>
+                prevImages.map((prevImage) => (prevImage === image ? updatedImage : prevImage))
+            );
+        },
+        [image, setImages]
+    );
 
     useEffect(() => {
         updateImageSize(newImageWidth, newImageHeight);
     }, [newImageWidth, newImageHeight, updateImageSize]);
 
     const handleWidthChange = (event) => {
-        const value = parseInt(event.target.value, 10);
+        let value = parseInt(event.target.value, 10);
+        if (isNaN(value) || value < 1) {
+            value = 1; // Set a minimum value of 1
+        }
+        if (value > MAX_WIDTH) {
+            setDimensionError(true); // Set the dimension error flag
+            return;
+        }
+        setDimensionError(false);
         setNewImageWidth(value);
         setLastUpdatedField('width');
         if (preserveAspectRatio) {
@@ -83,12 +116,31 @@ const ImageItem = ({image, setImages}) => {
     };
 
     const handleHeightChange = (event) => {
-        const value = parseInt(event.target.value, 10);
+        let value = parseInt(event.target.value, 10);
+        if (isNaN(value) || value < 1) {
+            value = 1; // Set a minimum value of 1
+        }
+        if (value > MAX_HEIGHT) {
+            setDimensionError(true); // Set the dimension error flag
+            return;
+        }
+        setDimensionError(false);
         setNewImageHeight(value);
         setLastUpdatedField('height');
         if (preserveAspectRatio) {
             setNewImageWidth(Math.round(value * aspectRatio));
         }
+    };
+
+    const handleFileChange = (e) => {
+        const files = e.target.files;
+        const totalFileSize = Array.from(files).reduce((total, file) => total + file.size, 0);
+        if (totalFileSize > MAX_TOTAL_FILE_SIZE_MB * 1024 * 1024) {
+            setFileSizeError(true); // Set the file size error flag
+            e.target.value = ''; // Clear the file input
+            return;
+        }
+        setFileSizeError(false);
     };
 
 
@@ -110,20 +162,28 @@ const ImageItem = ({image, setImages}) => {
     };
 
 
-            const downloadImage = () => {
+    const downloadImage = () => {
         const imageData = isOptimized ? image.optimizedImage : image.resizedImage;
         fetch(imageData)
             .then((response) => response.blob())
             .then((blob) => {
+                if (!blob) {
+                    console.error('Invalid blob');
+                    return;
+                }
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
-                link.download = isOptimized ? 'optimized_image.jpg' : 'resized_image.jpg';
+                link.download = isOptimized ? `${image.filename}_optimized.jpg` : `${image.filename}_resized.jpg`;
                 link.style.display = 'none';
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
+            })
+            .catch((error) => {
+                console.error('Error fetching blob:', error);
             });
     };
+
 
     const openImage = () => {
         const imageData = isOptimized ? image.optimizedImage : image.resizedImage;
@@ -183,8 +243,15 @@ const ImageItem = ({image, setImages}) => {
                         alt={isOptimized ? "Optimized Image" : "Resized Image"}
                         image={isOptimized ? image.optimizedImage : image.resizedImage}
                         title={isOptimized ? "Optimized Image" : "Resized Image"}
-                        sx={{ width: '200px', height: '200px', objectFit: 'scale-down', display: 'block', margin: isOptimized ? undefined : 'auto' }}
+                        sx={{
+                            margin: isOptimized ? 'undefined' : 'auto',
+                            width: '200px',
+                            height: isOptimized ? 'auto' : '200px',
+                            objectFit: isOptimized ? 'contain' : 'scale-down',
+                            display: 'block',
+                        }}
                     />
+
                 </Box>
                 <Box sx={{display: 'flex', flexDirection: 'column'}}>
                     {isOptimized ? (
@@ -261,6 +328,32 @@ const ImageItem = ({image, setImages}) => {
 
 
             </CardContent>
+
+            <Dialog open={fileSizeError} onClose={() => setFileSizeError(false)}>
+                <DialogTitle>File Size Exceeded</DialogTitle>
+                <DialogContent>
+                    <DialogContentText>
+                        The total file size should not exceed {MAX_TOTAL_FILE_SIZE_MB} MB.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setFileSizeError(false)}>OK</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Dimension error modal */}
+            <Dialog open={dimensionError} onClose={() => setDimensionError(false)}>
+                <DialogTitle>Dimension Exceeded</DialogTitle>
+                <DialogContent>
+                    <DialogContentText>
+                        The image dimensions should not exceed {MAX_WIDTH}x{MAX_HEIGHT}.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setDimensionError(false)}>OK</Button>
+                </DialogActions>
+            </Dialog>
+
         </Card>
     );
 };
