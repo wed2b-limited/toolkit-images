@@ -5,6 +5,7 @@
   "dependencies": {
     "@emotion/react": "^11.10.8",
     "@emotion/styled": "^11.10.8",
+    "@mui/icons-material": "^5.11.16",
     "@mui/material": "^5.12.3",
     "@testing-library/jest-dom": "^5.16.5",
     "@testing-library/react": "^13.4.0",
@@ -12,7 +13,9 @@
     "axios": "^1.4.0",
     "file-saver": "^2.0.5",
     "jszip": "^3.10.1",
+    "lodash": "^4.17.21",
     "react": "^18.2.0",
+    "react-cookie": "^4.1.1",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.43.9",
     "react-scripts": "5.0.1",
