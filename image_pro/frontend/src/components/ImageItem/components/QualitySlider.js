@@ -10,7 +10,7 @@ const QualitySlider = ({ value, onChange, ...extraProps }) => {
     }
 
     return (
-        <Box sx={{justifyContent: 'space-around', maxWidth: '350px', marginLeft: 5, marginRight: 5 }}>
+        <Box sx={{justifyContent: 'space-around', maxWidth: '350px', mt: 8, ml: 5, mr: 5, mb: 7 }}>
             <Typography mt={1} variant="body2" color="text.secondary" align="center" gutterBottom>Quality ({value})</Typography>
             <Slider
                 value={value}

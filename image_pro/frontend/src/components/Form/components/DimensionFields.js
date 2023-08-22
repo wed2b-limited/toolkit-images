@@ -24,7 +24,7 @@ function DimensionFields() {
                 value={newWidthValue}
                 onChange={handleWidthChange}
                 disabled={fileList < 1 && maintainAspectRatio}
-                sx={{ mb: 1, opacity: fileList < 1 ? 0.2 : 1 }}
+                sx={{ mb: 1, opacity: fileList < 1 ? 0.5 : 1 }}
             />
             <TextField
                 label="Height (px)"
@@ -35,7 +35,7 @@ function DimensionFields() {
                 value={newHeightValue}
                 onChange={handleHeightChange}
                 disabled={fileList < 1 && maintainAspectRatio}
-                sx={{ mb: 1, opacity: fileList < 1 ? 0.2 : 1 }}
+                sx={{ mb: 1, opacity: fileList < 1 ? 0.5 : 1 }}
             />
 
             <FormControlLabel
@@ -46,7 +46,8 @@ function DimensionFields() {
                     />
                 }
                 label="Maintain Aspect Ratio"
-                sx={{ mb: 1 }}
+                sx={{ mb: 1, opacity: fileList < 1 ? 0.3 : 1 }}
+                disabled={fileList < 1}
             />
         </>
     );

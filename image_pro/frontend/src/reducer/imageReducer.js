@@ -50,7 +50,10 @@ export function imageReducer(state, action) {
         case 'TOGGLE_CLEAR_DIALOG':
             return {...state, clearDialogOpen: !state.clearDialogOpen};
         case 'ADD_IMAGE':
-            return {...state, images: [...state.images, action.payload]};
+            return {
+                ...state,
+                images: [action.payload, ...state.images]  // Prepend new image to the start of the array
+            };
         default:
             throw new Error(`Unhandled action type: ${action.type}`);
     }
