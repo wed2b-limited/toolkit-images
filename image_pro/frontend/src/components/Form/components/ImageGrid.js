@@ -10,7 +10,7 @@ function ImageGrid() {
     return (
         <Grid
             container
-            spacing={2}
+            spacing={4}
             mt={4}
             sx={{ p: 1 }}
             maxWidth="xl"

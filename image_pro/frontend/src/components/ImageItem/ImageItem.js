@@ -14,11 +14,11 @@ import QualitySlider from "./components/QualitySlider";
 import DimensionControls from "./components/DimensionControls";
 import ImageCard from "./components/ImageCard";
 import {ImageContext} from '../Form/Form';
-
+import CropPaddingOptions from './components/CropPaddingOptions.js'
 
 const MAX_WIDTH = 10000; // maximum width limit
 const MAX_HEIGHT = 10000; // maximum height limit
-const MAX_TOTAL_FILE_SIZE_MB = 100; // maximum total file size limit in MB
+const MAX_TOTAL_FILE_SIZE_MB = 200; // maximum total file size limit in MB
 
 const ImageItem = ({image, index}) => {
     const {state, dispatch} = useContext(ImageContext);
@@ -29,7 +29,7 @@ const ImageItem = ({image, index}) => {
     const [lastUpdatedField, setLastUpdatedField] = useState(null);
     const [fileSizeError, setFileSizeError] = useState(false);
     const [dimensionError, setDimensionError] = useState(false);
-
+    const [cropOrPadding, setCropOrPadding] = useState('none');
 
     const debouncedQuality = useDebounce(inputQuality, 350);
     const aspectRatio = useMemo(() => image.originalImageWidth / image.originalImageHeight, [image]);
@@ -88,7 +88,7 @@ const ImageItem = ({image, index}) => {
     const updateImageSize = useCallback(
         async (newWidth, newHeight) => {
             const img = await dataUrlToImage(image.originalImage);
-            const {canvas, data} = await resizeImage(img, newWidth, newHeight);
+            const {canvas, data} = await resizeImage(img, newWidth, newHeight, cropOrPadding);
             const response = await fetch(data);
             const blob = await response.blob();
             const updatedResizedSize = blob.size;
@@ -101,7 +101,7 @@ const ImageItem = ({image, index}) => {
             };
             dispatch({type: 'UPDATE_IMAGE', payload: {index: index, updatedImage: updatedImage}});
         },
-        [dispatch]
+        [dispatch, cropOrPadding]
     );
 
 
@@ -163,12 +163,53 @@ const ImageItem = ({image, index}) => {
     };
 
 
-    const resizeImage = async (img, width, height) => {
+    const resizeImage = async (img, width, height, cropOrPadding) => {
         const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        let sourceX = 0;
+        let sourceY = 0;
+        let sourceWidth = img.width;
+        let sourceHeight = img.height;
+        let destX = 0;
+        let destY = 0;
+        let destWidth = width;
+        let destHeight = height;
+
+        if (cropOrPadding === 'crop') {
+            // Calculate source coordinates and dimensions for cropping
+            const sourceRatio = sourceWidth / sourceHeight;
+            const destRatio = destWidth / destHeight;
+            if (sourceRatio > destRatio) {
+                // Source is wider than destination, crop sides
+                sourceWidth = sourceHeight * destRatio;
+                sourceX = (img.width - sourceWidth) / 2;
+            } else if (sourceRatio < destRatio) {
+                // Source is taller than destination, crop top and bottom
+                sourceHeight = sourceWidth / destRatio;
+                sourceY = (img.height - sourceHeight) / 2;
+            }
+        } else if (cropOrPadding === 'padding') {
+            // Calculate destination coordinates and dimensions for padding
+            const sourceRatio = sourceWidth / sourceHeight;
+            const destRatio = destWidth / destHeight;
+            if (sourceRatio > destRatio) {
+                // Source is wider than destination, add padding at top and bottom
+                destHeight = destWidth / sourceRatio;
+                destY = (height - destHeight) / 2;
+            } else if (sourceRatio < destRatio) {
+                // Source is taller than destination, add padding at sides
+                destWidth = destHeight * sourceRatio;
+                destX = (width - destWidth) / 2;
+            }
+        }
+
         canvas.width = width;
         canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, width, height);
+
+        // Draw the image onto the canvas
+        ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, destX, destY, destWidth, destHeight);
+
         return await new Promise((resolve) => {
             canvas.toBlob(
                 (blob) => {
@@ -179,6 +220,8 @@ const ImageItem = ({image, index}) => {
             );
         });
     };
+
+
 
 
     const downloadImage = () => {
@@ -192,7 +235,8 @@ const ImageItem = ({image, index}) => {
                 }
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
-                link.download = isOptimized ? `${image.filename}_optimized.jpg` : `${image.filename}_resized.jpg`;
+                // link.download = isOptimized ? `${image.filename}_optimized.jpg` : `${image.filename}_resized.jpg`;
+                link.download = `${image.filename}.jpg`
                 link.style.display = 'none';
                 document.body.appendChild(link);
                 link.click();
@@ -248,7 +292,7 @@ const ImageItem = ({image, index}) => {
         <Card
             sx={{
                 width: '400px',
-                height: '550px',
+                height: '650px',
                 backgroundColor: '#f7f7f7',
                 boxShadow: '4px 4px 4px rgba(0, 0, 0, 0.3)',
             }}>
@@ -316,6 +360,12 @@ const ImageItem = ({image, index}) => {
                                 onHeightChange={handleHeightChangeOnCard}
                                 preserveAspectRatio={preserveAspectRatio}
                                 setPreserveAspectRatio={setPreserveAspectRatio}
+                            />
+
+                            <CropPaddingOptions
+                                cropOrPadding={cropOrPadding}
+                                setCropOrPadding={setCropOrPadding}
+                                preserveAspectRatio={preserveAspectRatio}
                             />
                         </>
                     )}

@@ -16,6 +16,7 @@ import SnackbarProcessing from "./components/SnackbarProcessing";
 import ErrorDialogs from "./components/ErrorDialogs";
 import {imageReducer} from "../../reducer/imageReducer";
 import {initialState} from "../../reducer/initialState";
+import localForage from 'localforage';
 
 export const ImageContext = createContext({
     state: initialState,
@@ -29,6 +30,54 @@ function Form() {
     const validTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/tiff'];
     const width = watch("width");
     const height = watch("height");
+
+    localForage.config({
+        name: 'myApp',
+        storeName: 'images', // Name of the store
+    });
+
+    useEffect(() => {
+        const loadImages = async () => {
+            dispatch({type: 'SET_PROCESSING', payload: true});
+            try {
+                const data = await localForage.getItem('images');
+                const images = data?.images || [];
+                const timestamp = data?.timestamp;
+
+                if (timestamp && Date.now() - timestamp > 60 * 60 * 1000) {
+                    await localForage.removeItem('images');
+                    dispatch({ type: 'SET_IMAGES', payload: [] });
+                } else {
+                    dispatch({ type: 'SET_IMAGES', payload: images });
+                }
+            } catch (err) {
+                console.error('Failed to load images from IndexedDB:', err);
+            } finally {
+                dispatch({type: 'SET_PROCESSING', payload: false});
+            }
+        };
+        loadImages();
+    }, []);
+
+    useEffect(() => {
+        const saveImages = async () => {
+            dispatch({type: 'SET_PROCESSING', payload: true});
+            try {
+                const data = {
+                    images: state.images,
+                    timestamp: Date.now()
+                };
+                await localForage.setItem('images', data);
+            } catch (err) {
+                console.error('Failed to save images to IndexedDB:', err);
+            } finally {
+                dispatch({type: 'SET_PROCESSING', payload: false});
+            }
+        };
+        saveImages();
+    }, [state.images]);
+
+
 
     useEffect(() => {
         if (state.maintainAspectRatio && !state.manualChange) {
@@ -55,9 +104,6 @@ function Form() {
         }
         dispatch({type: 'SET_MANUAL_CHANGE', payload: true});
     }, [state.maintainAspectRatio, state.newWidthValue, state.newHeightValue, state.manualChange, setValue, state.lastChanged, state.originalWidth, state.originalHeight, state.aspectRatio]);
-
-
-
 
     const handleClearDialogOpen = () => {
         dispatch({type: 'TOGGLE_CLEAR_DIALOG', payload: true});
@@ -135,8 +181,6 @@ function Form() {
         }
     }
 
-
-
     const handleAspectRatioChange = async (e) => {
         const isAspectRatioChecked = e.target.checked;
         dispatch({ type: 'SET_ASPECT_RATIO', payload: isAspectRatioChecked });
@@ -163,7 +207,6 @@ function Form() {
         }
     };
 
-
     const readFileAsDataUrl = (file) => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -183,9 +226,6 @@ function Form() {
     const handleApiCall = async (formData) => {
         try {
             const response = await axios.post("http://localhost:5000/upload", formData);
-            for (var pair of formData.entries()) {
-                console.log(pair[0]+ ', '+ pair[1]);
-            }
             return response.data;
         } catch (error) {
             console.error("Error uploading the image:", error);
@@ -227,7 +267,6 @@ function Form() {
         dispatch({type: 'SET_PROCESSING', payload: true});
 
         const processImages = async (width, height) => {
-            console.log('Processing images with width and height: ', width, height);
             const formData = new FormData();
             if (width && height) {
                 formData.append("width", width);
@@ -236,7 +275,6 @@ function Form() {
             formData.append("optimize", optimize);
             if (optimize) {
                 formData.append("quality", state.quality);
-                console.log("Quality sent to backend: ", state.quality);
             }
 
             const originalImageDataUrls = [];
@@ -248,7 +286,6 @@ function Form() {
 
             try {
                 const responseDataArray = await handleApiCall(formData);
-                console.log('Response data: ', responseDataArray);
                 for (let i = 0; i < responseDataArray.length; i++) {
                     const responseData = responseDataArray[i];
                     const optimizedImage = {

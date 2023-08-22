@@ -1,6 +1,5 @@
-import React, {useContext} from 'react';
+import React from 'react';
 import {TextField, Box, FormControlLabel, Checkbox} from '@mui/material';
-import {ImageContext} from "../../Form/Form";
 
 const DimensionControls = ({
                                width,

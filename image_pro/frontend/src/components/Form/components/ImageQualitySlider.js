@@ -8,7 +8,7 @@ function ImageQualitySlider() {
 
     return (
         <>
-            <Typography gutterBottom>Quality ({quality})</Typography>
+            <Typography gutterBottom sx={{ opacity: fileList.length < 1 ? 0.3 : 1 }}>Quality ({quality})</Typography>
             <Slider
                 value={quality}
                 onChange={(event, newValue) => dispatch({ type: 'SET_QUALITY', payload: newValue })}
@@ -18,7 +18,7 @@ function ImageQualitySlider() {
                 min={1}
                 max={99}
                 disabled={fileList.length < 1}
-                sx={{ marginBottom: 2, opacity: fileList.length < 1 ? 0.2 : 1 }}
+                sx={{ marginBottom: 2, opacity: fileList.length < 1 ? 0.5 : 1 }}
             />
         </>
     );

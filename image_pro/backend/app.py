@@ -33,6 +33,7 @@ def upload():
         height = request.form.get('height')
         optimize = request.form.get('optimize') == 'true'
         quality = int(request.form.get('quality')) if optimize else None
+        cropOrPadding = request.form.get('cropOrPadding')
 
         response_data = []
 
@@ -69,6 +70,18 @@ def upload():
                             new_width = new_height * aspect_ratio[0] / aspect_ratio[1]
                         else:
                             new_width = int(original_width * new_height / original_height)
+
+                    if cropOrPadding == 'crop':
+                        # Crop the image to the desired dimensions
+                        left = (original_width - new_width)/2
+                        top = (original_height - new_height)/2
+                        right = (original_width + new_width)/2
+                        bottom = (original_height + new_height)/2
+                        img = img.crop((left, top, right, bottom))
+                    elif cropOrPadding == 'padding':
+                        # Add padding to the image to reach the desired dimensions
+                        img = ImageOps.expand(img, border=((new_width-original_width)//2, (new_height-original_height)//2), fill='black')
+
 
                     img_resized = img.resize((new_width, new_height), resample=Image.LANCZOS)
                 else:
